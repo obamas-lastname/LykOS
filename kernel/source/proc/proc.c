@@ -67,10 +67,7 @@ void proc_destroy(proc_t *proc)
         */
     }
 
-    /* TO-DO:
-    - implement global process table/list
-    - remove process from there
-    */
+    list_remove(&proc_list, &proc->proc_list_node);
 
     spinlock_release(&proc->slock);
     heap_free(proc);
