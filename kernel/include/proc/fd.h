@@ -26,6 +26,10 @@ fd_table_t;
 void fd_table_init(fd_table_t *table);
 void fd_table_destroy(fd_table_t *table);
 
+// clone func or simply HAVE FD_TABLE AS A POINTER IN PROC_T...?
+fd_table_t *fd_table_clone(fd_table_t *table);
+
+
 /**
  * @brief Allocate a new file descriptor.
  *

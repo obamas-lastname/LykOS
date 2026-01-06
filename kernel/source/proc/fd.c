@@ -3,6 +3,7 @@
 #include "mm/heap.h"
 #include "panic.h"
 #include "sync/spinlock.h"
+#include <stdatomic.h>
 
 // FD lifetime
 
@@ -127,6 +128,52 @@ bool fd_alloc(fd_table_t *table, vnode_t *vnode, int *fd)
     *fd = (int)old_capacity;
     spinlock_release(&table->lock);
     return true;
+}
+
+fd_table_t *fd_table_clone(fd_table_t *parent)
+{
+    fd_table_t *child = heap_alloc(sizeof(fd_table_t));
+    if (!child) return NULL;
+
+    fd_table_init(child);
+    spinlock_acquire(&parent->lock);
+
+    if (child->capacity < parent->capacity)
+    {
+        child->fds = heap_realloc(child->fds,
+            child->capacity * sizeof(fd_entry_t),
+            parent->capacity * sizeof(fd_entry_t));
+
+        if (!child->fds)
+        {
+            spinlock_release(&parent->lock);
+            heap_free(child);
+            return NULL;
+        }
+        child->capacity = parent->capacity;
+    }
+
+    for (size_t i = 0; i < parent->capacity; i++)
+    {
+        if (parent->fds[i].vnode != NULL)
+        {
+            child->fds[i].vnode = parent->fds[i].vnode;
+            child->fds[i].offset = parent->fds[i].offset;
+
+            parent->fds[i].vnode->refcount++;
+
+            atomic_init(&child->fds[i].refcount, 1);
+        }
+        else
+        {
+            child->fds[i].vnode = NULL;
+            child->fds[i].offset = 0;
+            atomic_init(&child->fds[i].refcount, 0);
+        }
+    }
+
+    spinlock_release(&parent->lock);
+    return child;
 }
 
 bool fd_free(fd_table_t *table, int fd)
