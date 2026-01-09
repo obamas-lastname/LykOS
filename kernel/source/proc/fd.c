@@ -198,7 +198,7 @@ fd_entry_t fd_get(fd_table_t *table, int fd)
     }
 
     spinlock_release(&table->lock);
-    return (fd_entry_t) {-1, NULL, 0, (fd_acc_mode_t) {false, false, false, false}, 0};
+    return (fd_entry_t) {NULL, 0, (fd_acc_mode_t) {false, false, false, false}, 0};
 }
 
 void fd_put(fd_table_t *table, int fd)
