@@ -137,9 +137,10 @@ static void nvme_identify_controller(nvme_t *nvme)
 void nvme_init(pci_header_type0_t *header)
 {
     nvme_t *nvme = heap_alloc(sizeof(nvme_t));
-    nvme->registers = (nvme_regs_t *)(uintptr_t)header->bar[0];
 
-    // read stride from CAP
+    header->common.command |= (1 << 1);
+    nvme->registers = (nvme_regs_t *)(HHDM + (header->bar[0] & ~0xF));
+
     nvme_cap_t *cap = (nvme_cap_t *)&nvme->registers->CAP;
     nvme->registers->stride = 4 << cap->dstrd;
 

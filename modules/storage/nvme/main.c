@@ -1,19 +1,22 @@
+#define LOG_PREFIX "NVME"
 #include "nvme.h"
-#include "mod/module.h"
 
+#include "mod/module.h"
 #include "log.h"
 #include "dev/bus.h"
 #include "dev/driver.h"
-
-#define LOG_PREFIX "NVME"
 
 static int nvme_probe(device_t *device)
 {
     pci_header_type0_t *header = (pci_header_type0_t *) device->bus_data;
 
+    log(LOG_DEBUG, "Probing device: class=%02X subclass=%02X",
+        header->common.class, header->common.subclass);
+
     if (header->common.class != 0x01 || header->common.subclass != 0x08)
         return 0;
 
+    log(LOG_INFO, "Found NVMe controller!");
     nvme_init(header);
     return 1;
 }

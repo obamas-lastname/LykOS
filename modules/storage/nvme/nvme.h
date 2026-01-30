@@ -5,6 +5,7 @@
 #include "dev/device.h"
 #include "mm/dma.h"
 #include "mm/vm.h"
+#include "hhdm.h"
 
 #define NVME_ADMIN_QUEUE_DEPTH 64
 
