@@ -6,19 +6,10 @@
 #include <stdint.h>
 #include <string.h>
 
-// Helpers
-static inline uint32_t nvme_read_reg(uintptr_t nvme_base_addr, uint32_t offset) {
-	volatile uint32_t *nvme_reg = (volatile uint32_t *)(nvme_base_addr + offset);
-	return *nvme_reg;
-}
+// --- HELPERS ---
 
-static inline void nvme_write_reg(uintptr_t nvme_base_addr, uint32_t offset, uint32_t value) {
-	volatile uint32_t *nvme_reg = (volatile uint32_t *)(nvme_base_addr + offset);
-	*nvme_reg = value;
-}
-
-// Poll the completion queue once; returns pointer to a valid completed entry or NULL
-nvme_cq_entry_t *nvme_poll_cq(nvme_t *nvme, nvme_queue_t *queue)
+// poll the completion queue once; returns pointer to a valid completed entry or NULL
+static nvme_cq_entry_t *nvme_poll_cq(nvme_t *nvme, nvme_queue_t *queue)
 {
     nvme_cq_entry_t *entry = &queue->cq[queue->head];
 
@@ -36,8 +27,8 @@ nvme_cq_entry_t *nvme_poll_cq(nvme_t *nvme, nvme_queue_t *queue)
     return entry;
 }
 
-// Set ready status and wait
-void nvme_wait_ready(nvme_t *nvme, bool ready)
+// set ready status and wait
+static void nvme_wait_ready(nvme_t *nvme, bool ready)
 {
     while (nvme->registers->CSTS.rdy != ready)
         ; // spin
@@ -66,13 +57,13 @@ void nvme_start(nvme_t *nvme)
 }
 
 // --- ADMIN FUNCS ---
-int nvme_create_admin_queue(nvme_t *nvme)
+// TO-DO: add error handling
+static void nvme_create_admin_queue(nvme_t *nvme)
 {
     size_t sq_size = NVME_ADMIN_QUEUE_DEPTH * sizeof(nvme_sq_entry_t);
     size_t cq_size = NVME_ADMIN_QUEUE_DEPTH * sizeof(nvme_cq_entry_t);
 
     nvme_queue_t *aq = heap_alloc(sizeof(nvme_queue_t));
-    if (!aq) return -1;
     nvme->admin_queue = aq;
 
     nvme->admin_queue->sq = (nvme_sq_entry_t *) dma_map(sq_size);
@@ -87,18 +78,16 @@ int nvme_create_admin_queue(nvme_t *nvme)
     nvme->admin_queue->tail = 0;
     nvme->admin_queue->phase = 1;
 
-    // Set queue sizes in AQA register
+    // set queue sizes in AQA register
     nvme->registers->AQA.asqs = NVME_ADMIN_QUEUE_DEPTH - 1;
     nvme->registers->AQA.acqs = NVME_ADMIN_QUEUE_DEPTH - 1;
 
-    // Program controller registers with physical addresses
+    // program controller registers with physical addresses
     nvme->registers->ASQ = dma_phys_addr(nvme->admin_queue->sq);
     nvme->registers->ACQ = dma_phys_addr(nvme->admin_queue->cq);
-
-    return 0;
 }
 
-uint16_t nvme_submit_admin_command(nvme_t *nvme, uint8_t opc, uint16_t cid, nvme_command_t command)
+static uint16_t nvme_submit_admin_command(nvme_t *nvme, uint8_t opc, uint16_t cid, nvme_command_t command)
 {
     nvme_queue_t *aq = nvme->admin_queue;
 
@@ -110,6 +99,9 @@ uint16_t nvme_submit_admin_command(nvme_t *nvme, uint8_t opc, uint16_t cid, nvme
     };
     aq->sq[aq->tail] = new_entry;
 
+    // increment
+    aq->tail = (aq->tail + 1) % aq->depth;
+
     // ring doorbell
     NVME_SQ_TDBL(nvme->registers, aq->qid, nvme->registers->stride) = aq->tail;
 
@@ -118,26 +110,19 @@ uint16_t nvme_submit_admin_command(nvme_t *nvme, uint8_t opc, uint16_t cid, nvme
 
 // waits until command with given cid is completed
 // TO-DO: add status, result, flags support
-bool nvme_admin_wait_completion(nvme_t *nvme, uint16_t cid, nvme_cq_entry_t *out_cqe)
+static void nvme_admin_wait_completion(nvme_t *nvme, uint16_t cid)
 {
-    nvme_queue_t *aq = nvme->admin_queue;
-
     while (true)
     {
-        nvme_cq_entry_t *entry = nvme_poll_cq(nvme, aq);
-        if (!entry)
-            continue; // no new CQ entry yet
-
-        if (entry->cid == cid)
-        {
-            if (out_cqe)
-                *out_cqe = *entry; // copy the completion info if caller wants it
-            return true;
-        }
+        nvme_cq_entry_t *entry = nvme_poll_cq(nvme, nvme->admin_queue);
+        if (entry && entry->cid == cid)
+            return;
     }
 }
 
-void nvme_identify_controller(nvme_t *nvme)
+// --- ACTUAL COMMANDS ---
+
+static void nvme_identify_controller(nvme_t *nvme)
 {
     nvme->identity = (nvme_id_t *)dma_map(sizeof(nvme_id_t));
     memset((void *)nvme->identity, 0, sizeof(nvme_id_t));
@@ -147,7 +132,7 @@ void nvme_identify_controller(nvme_t *nvme)
     cmd.cdw10 = 1; // CNS=1 for controller identify
 
     nvme_submit_admin_command(nvme, 0x06, 1, cmd); // opcode 0x06 = Identify
-    nvme_admin_wait_completion(nvme, 1, NULL);
+    nvme_admin_wait_completion(nvme, 1);
 }
 
 // --- INIT ---
@@ -161,6 +146,7 @@ void nvme_init(pci_header_type0_t *header)
     nvme_cap_t *cap = (nvme_cap_t *)&nvme->registers->CAP;
     nvme->registers->stride = 4 << cap->dstrd;
 
+    // basic flow
     nvme_reset(nvme);
     nvme_wait_ready(nvme, 0);
     nvme_create_admin_queue(nvme);

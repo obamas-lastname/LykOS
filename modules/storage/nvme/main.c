@@ -7,21 +7,21 @@
 
 #define LOG_PREFIX "NVME"
 
-static driver_t nvme_driver = {
-    .name = "NVMe Driver",
-    .probe = NULL,
-};
-
-bool nvme_probe(device_t *device)
+static int nvme_probe(device_t *device)
 {
     pci_header_type0_t *header = (pci_header_type0_t *) device->bus_data;
 
     if (header->common.class != 0x01 || header->common.subclass != 0x08)
-        return false;
+        return 0;
 
     nvme_init(header);
-    return true;
+    return 1;
 }
+
+static driver_t nvme_driver = {
+    .name = "NVMe Driver",
+    .probe = nvme_probe,
+};
 
 void __module_install()
 {
@@ -35,9 +35,19 @@ void __module_install()
     if (bus->register_driver(&nvme_driver))
         log(LOG_INFO, "Driver registered successfully.");
     else
-        log(LOG_ERROR, "Error registering drive");
+        log(LOG_ERROR, "Error registering driver");
 
     bus_put(bus);
+}
+
+void __module_destroy()
+{
+    bus_t *bus = bus_get("pci");
+    if (bus)
+    {
+        bus->remove_driver(&nvme_driver);
+        bus_put(bus);
+    }
 }
 
 MODULE_NAME("NVMe")

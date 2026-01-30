@@ -51,4 +51,4 @@ endif
 
 subdir('bus')
 subdir('misc')
-subidr('storage')
+subdir('storage')
