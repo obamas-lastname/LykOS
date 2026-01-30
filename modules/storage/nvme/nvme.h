@@ -3,9 +3,14 @@
 #include "assert.h"
 #include "dev/bus/pci.h"
 #include "dev/device.h"
+#include "mm/dma.h"
+#include "mm/vm.h"
 #include <stdint.h>
 #include <sys/types.h>
 
+#define NVME_ADMIN_QUEUE_DEPTH 64
+
+// Doorbell Macros
 #define NVME_SQ_TDBL(base, qid, stride) \
     (*(volatile uint32_t *)((uintptr_t)(base) + 0x1000 + (2 * (qid)) * (stride)))
 
@@ -38,10 +43,13 @@ typedef volatile struct
 __attribute__((packed))
 nvme_id_t;
 
+
 // Register stuff
 /* source: https://nvmexpress.org/wp-content/uploads/NVM-Express-Base-Specification-Revision-2.3-2025.08.01-Ratified.pdf
    pg. 78 */
+// ------------
 
+// CAP Register
 typedef struct
 {
     uint64_t mqes     : 16; // Maximum Queue Entries Supported
@@ -111,8 +119,10 @@ typedef volatile struct
     uint64_t ASQ;          // Admin Submission Queue Base Address
     uint64_t ACQ;          // Admin Completion Queue Base Address
     uint8_t  _rsvd2[0x1000 - 0x38];
-    uint32_t DOORBELL[];   // Doorbell registers
+    uint32_t stride;       // Doorbell registers
 } __attribute__((packed)) nvme_regs_t;
+
+// ---------
 
 typedef struct
 {
@@ -154,6 +164,7 @@ nvme_command_t;
 
 STATIC_ASSERT(sizeof(nvme_command_t) == 15 * sizeof(uint32_t));
 
+// --- QUEUE ENTRIES ---
 // Submission queue entry
 typedef struct
 {
@@ -188,6 +199,7 @@ __attribute__((packed))
 nvme_cq_entry_t;
 
 STATIC_ASSERT(sizeof(nvme_cq_entry_t) == 16);
+// -----
 
 // Queue
 typedef struct
@@ -217,3 +229,9 @@ typedef struct
 }
 __attribute__((packed))
 nvme_t;
+
+
+// --- FUNCTIONS ---
+void nvme_reset(nvme_t *nvme);
+void nvme_start(nvme_t *nvme);
+void nvme_init(pci_header_type0_t *header);

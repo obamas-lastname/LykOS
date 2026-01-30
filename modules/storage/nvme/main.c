@@ -1,3 +1,4 @@
+#include "nvme.h"
 #include "mod/module.h"
 
 #include "log.h"
@@ -10,6 +11,17 @@ static driver_t nvme_driver = {
     .name = "NVMe Driver",
     .probe = NULL,
 };
+
+bool nvme_probe(device_t *device)
+{
+    pci_header_type0_t *header = (pci_header_type0_t *) device->bus_data;
+
+    if (header->common.class != 0x01 || header->common.subclass != 0x08)
+        return false;
+
+    nvme_init(header);
+    return true;
+}
 
 void __module_install()
 {
