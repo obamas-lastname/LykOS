@@ -1,5 +1,10 @@
 #include "mm/dma.h"
 
+uintptr_t dma_phys_addr(void *virt)
+{
+    return (uintptr_t)virt - HHDM;
+}
+
 uintptr_t dma_map(size_t size)
 {
     size_t pages = (size + ARCH_PAGE_GRAN - 1) / ARCH_PAGE_GRAN;
