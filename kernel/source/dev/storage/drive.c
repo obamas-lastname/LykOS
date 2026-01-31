@@ -8,7 +8,7 @@ static drive_t *drives[MAX_DRIVES];
 static int _drive_count = 0;
 static spinlock_t drives_lock = SPINLOCK_INIT;
 
-drive_t *drive_create(drive_type_t type, char *name, device_t *parent)
+drive_t *drive_create(drive_type_t type)
 {
     // kmem_cache_t *drive_cache = kmem_new_cache("drive_t", sizeof(drive_t));
     drive_t *d = heap_alloc(sizeof(drive_t));
@@ -18,8 +18,6 @@ drive_t *drive_create(drive_type_t type, char *name, device_t *parent)
     memset(d, 0, sizeof(drive_t));
 
     d->type = type;
-    d->device.name = name;
-    d->device.parent = parent;
     d->device.class = DEVICE_STORAGE;
 
     ref_init(&d->device.refcount);
