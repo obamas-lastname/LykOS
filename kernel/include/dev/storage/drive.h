@@ -33,8 +33,8 @@ typedef struct drive
     uint64_t sector_size;
 
     // Function pointers for actual I/O — filled in by the driver
-    int (*read_sectors)(struct drive *d, uint64_t lba, uint64_t count, void *buf);
-    int (*write_sectors)(struct drive *d, uint64_t lba, uint64_t count, const void *buf);
+    int (*read_sectors)(struct drive *d, const void *buf, uint64_t lba, uint64_t count);
+    int (*write_sectors)(struct drive *d, const void *buf, uint64_t lba, uint64_t count);
 
 }
 drive_t;
