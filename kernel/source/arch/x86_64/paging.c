@@ -8,6 +8,7 @@
 #define PTE_PRESENT   (1ull <<  0)
 #define PTE_WRITE     (1ull <<  1)
 #define PTE_USER      (1ull <<  2)
+#define PTE_PCD       (1ull <<  4) // page cache disable
 #define PTE_HUGE      (1ull <<  7)
 #define PTE_GLOBAL    (1ull <<  8)
 #define PTE_NX        (1ull << 63)
@@ -33,6 +34,8 @@ static int translate_prot(int prot)
         pteprot |= PTE_USER;
     if (!(prot & MM_PROT_EXEC))
         pteprot |= PTE_NX;
+    if (prot & MM_PROT_UC)
+        pteprot |= PTE_PCD;
 
     return pteprot;
 }
