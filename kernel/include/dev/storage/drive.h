@@ -1,12 +1,7 @@
 #pragma once
 
-#include "dev/bus.h"
 #include "dev/device.h"
-#include "log.h"
-#include "mm/heap.h"
-#include "mm/mm.h"
-#include "sync/spinlock.h"
-#include "utils/ref.h"
+#include "utils/list.h"
 
 typedef enum
 {
@@ -22,6 +17,7 @@ typedef struct drive
 {
     device_t device;
     int id;
+    bool mounted;
 
     drive_type_t type;
     const char *serial;
@@ -32,10 +28,11 @@ typedef struct drive
     uint64_t sectors;
     uint64_t sector_size;
 
-    // function pointers for actual I/O - filled in by the driver
+    // Function pointers for actual I/O — filled in by the driver
     int (*read_sectors)(struct drive *d, const void *buf, uint64_t lba, uint64_t count);
     int (*write_sectors)(struct drive *d, const void *buf, uint64_t lba, uint64_t count);
 
+    list_node_t node;
 }
 drive_t;
 
